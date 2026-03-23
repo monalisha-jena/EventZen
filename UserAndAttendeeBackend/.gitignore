@@ -40,4 +40,3 @@ target/
 *.class
 *.jar
 .mvn/
-application.properties
