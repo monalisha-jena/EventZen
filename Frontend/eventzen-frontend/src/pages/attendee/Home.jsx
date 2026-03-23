@@ -287,22 +287,10 @@ const Home = () => {
                                                 <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
                                                 </svg>
-                                                {event.currentCount} / {event.maxCapacity} attendees
+                                                {event.maxCapacity} attendees
                                             </p>
                                         </div>
 
-                                        {/* Availability bar */}
-                                        <div className="mb-4">
-                                            <div className="flex justify-between text-xs text-gray-400 mb-1">
-                                                <span>Availability</span>
-                                                <span>{Math.round((event.currentCount / event.maxCapacity) * 100)}%</span>
-                                            </div>
-                                            <div className="w-full bg-gray-100 rounded-full h-1.5">
-                                                <div
-                                                    className={`h-1.5 rounded-full ${getAvailabilityColor(event.currentCount, event.maxCapacity)}`}
-                                                    style={{ width: `${Math.min(100, (event.currentCount / event.maxCapacity) * 100)}%` }} />
-                                            </div>
-                                        </div>
 
                                         <Link to={`/events/${event.id}`}
                                             className="block w-full text-center bg-indigo-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors">
