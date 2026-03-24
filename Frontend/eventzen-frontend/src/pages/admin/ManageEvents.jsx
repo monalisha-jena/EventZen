@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { getAllEvents, createEvent, updateEvent, deleteEvent } from "../../api/eventApi";
 import { getAllVenues, getAllVendors } from "../../api/venueApi";
@@ -6,6 +7,7 @@ import { getAllVenues, getAllVendors } from "../../api/venueApi";
 
 const ManageEvents = () => {
     const { token } = useAuth();
+    const navigate = useNavigate();
 
     const [events, setEvents] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -18,6 +20,10 @@ const ManageEvents = () => {
     const [venues, setVenues] = useState([]);
     const [vendors, setVendors] = useState([]);
     const [venuesLoading, setVenuesLoading] = useState(false);
+
+    // ── New state for capacity validation ────────────
+    const [selectedVenueCapacity, setSelectedVenueCapacity] = useState(null);
+    const [capacityError, setCapacityError] = useState("");
 
     const [formData, setFormData] = useState({
         title: "",
@@ -67,6 +73,35 @@ const ManageEvents = () => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
+    // ── Handle Venue Change (with capacity tracking) ──
+    const handleVenueChange = (e) => {
+        const venueId = e.target.value;
+        setFormData({ ...formData, venueId });
+
+        const selectedVenue = venues.find(v => v._id === venueId);
+        const cap = selectedVenue ? selectedVenue.capacity : null;
+        setSelectedVenueCapacity(cap);
+
+        // Re-validate existing maxCapacity against new venue
+        if (cap && formData.maxCapacity && parseInt(formData.maxCapacity) > cap) {
+            setCapacityError(`Exceeds venue capacity (max: ${cap})`);
+        } else {
+            setCapacityError("");
+        }
+    };
+
+    // ── Handle Max Capacity Change (with validation) ──
+    const handleMaxCapacityChange = (e) => {
+        const val = e.target.value;
+        setFormData({ ...formData, maxCapacity: val });
+
+        if (selectedVenueCapacity && parseInt(val) > selectedVenueCapacity) {
+            setCapacityError(`Exceeds venue capacity (max: ${selectedVenueCapacity})`);
+        } else {
+            setCapacityError("");
+        }
+    };
+
     // ── Handle Edit ───────────────────────────────────
     const handleEdit = (event) => {
         setEditingEvent(event);
@@ -79,6 +114,12 @@ const ManageEvents = () => {
             maxCapacity: event.maxCapacity,
             category: event.category
         });
+
+        // Set selected venue capacity for edit mode
+        const selectedVenue = venues.find(v => v._id === event.venueId);
+        setSelectedVenueCapacity(selectedVenue ? selectedVenue.capacity : null);
+        setCapacityError("");
+
         setShowForm(true);
         window.scrollTo({ top: 0, behavior: "smooth" });
     };
@@ -86,6 +127,8 @@ const ManageEvents = () => {
     // ── Handle Submit ─────────────────────────────────
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (capacityError) return; // Block submit if capacity error exists
+
         setFormLoading(true);
         setError(null);
         setSuccess(null);
@@ -107,6 +150,8 @@ const ManageEvents = () => {
 
             setShowForm(false);
             setEditingEvent(null);
+            setSelectedVenueCapacity(null);
+            setCapacityError("");
             setFormData({
                 title: "",
                 description: "",
@@ -117,7 +162,7 @@ const ManageEvents = () => {
                 category: "WORKSHOP"
             });
             fetchEvents();
-            fetchVenuesAndVendors(); //added later
+            fetchVenuesAndVendors();
 
         } catch (err) {
             setError(err.response?.data?.message || "Operation failed");
@@ -134,7 +179,7 @@ const ManageEvents = () => {
             await deleteEvent(id, token);
             setSuccess("Event deleted successfully");
             fetchEvents();
-            fetchVenuesAndVendors(); //added later
+            fetchVenuesAndVendors();
         } catch (err) {
             setError("Failed to delete event");
         } finally {
@@ -180,6 +225,8 @@ const ManageEvents = () => {
                         onClick={() => {
                             setShowForm(!showForm);
                             setEditingEvent(null);
+                            setSelectedVenueCapacity(null);
+                            setCapacityError("");
                             setFormData({
                                 title: "",
                                 description: "",
@@ -244,19 +291,28 @@ const ManageEvents = () => {
                                 {venuesLoading ? (
                                     <div className="text-sm text-gray-500">Loading venues...</div>
                                 ) : (
-                                    <select
-                                        name="venueId"
-                                        value={formData.venueId}
-                                        onChange={handleChange}
-                                        required
-                                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
-                                        <option value="">-- Select a venue --</option>
-                                        {venues.map((venue) => (
-                                            <option key={venue._id} value={venue._id}>
-                                                {venue.name} — {venue.city} (capacity: {venue.capacity})
-                                            </option>
-                                        ))}
-                                    </select>
+                                    <div className="flex items-center gap-2">
+                                        <select
+                                            name="venueId"
+                                            value={formData.venueId}
+                                            onChange={handleVenueChange}
+                                            required
+                                            className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+                                            <option value="">-- Select a venue --</option>
+                                            {venues.map((venue) => (
+                                                <option key={venue._id} value={venue._id}>
+                                                    {venue.name} — {venue.city} (capacity: {venue.capacity})
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <button
+                                            type="button"
+                                            onClick={() => navigate("/admin/venues")}
+                                            title="Add new venue"
+                                            className="flex-shrink-0 w-10 h-10 bg-indigo-50 text-indigo-600 border border-indigo-200 rounded-lg text-xl font-bold hover:bg-indigo-100 hover:border-indigo-400 transition-colors flex items-center justify-center">
+                                            +
+                                        </button>
+                                    </div>
                                 )}
                             </div>
 
@@ -268,19 +324,28 @@ const ManageEvents = () => {
                                 {venuesLoading ? (
                                     <div className="text-sm text-gray-500">Loading vendors...</div>
                                 ) : (
-                                    <select
-                                        name="vendorId"
-                                        value={formData.vendorId}
-                                        onChange={handleChange}
-                                        required
-                                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
-                                        <option value="">-- Select a vendor --</option>
-                                        {vendors.map((vendor) => (
-                                            <option key={vendor._id} value={vendor._id}>
-                                                {vendor.name} — {vendor.serviceType} (₹{vendor.price})
-                                            </option>
-                                        ))}
-                                    </select>
+                                    <div className="flex items-center gap-2">
+                                        <select
+                                            name="vendorId"
+                                            value={formData.vendorId}
+                                            onChange={handleChange}
+                                            required
+                                            className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+                                            <option value="">-- Select a vendor --</option>
+                                            {vendors.map((vendor) => (
+                                                <option key={vendor._id} value={vendor._id}>
+                                                    {vendor.name} — {vendor.serviceType} (₹{vendor.price})
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <button
+                                            type="button"
+                                            onClick={() => navigate("/admin/vendors")}
+                                            title="Add new vendor"
+                                            className="flex-shrink-0 w-10 h-10 bg-indigo-50 text-indigo-600 border border-indigo-200 rounded-lg text-xl font-bold hover:bg-indigo-100 hover:border-indigo-400 transition-colors flex items-center justify-center">
+                                            +
+                                        </button>
+                                    </div>
                                 )}
                             </div>
 
@@ -308,12 +373,29 @@ const ManageEvents = () => {
                                     type="number"
                                     name="maxCapacity"
                                     value={formData.maxCapacity}
-                                    onChange={handleChange}
+                                    onChange={handleMaxCapacityChange}
                                     required
                                     min="1"
                                     placeholder="100"
-                                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    className={`w-full px-4 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                                        capacityError
+                                            ? "border-red-400 focus:ring-red-400 bg-red-50"
+                                            : "border-gray-300"
+                                    }`}
                                 />
+                                {capacityError && (
+                                    <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
+                                        <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fillRule="evenodd" d="M18 10A8 8 0 11 2 10a8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                        </svg>
+                                        {capacityError}
+                                    </p>
+                                )}
+                                {selectedVenueCapacity && !capacityError && (
+                                    <p className="text-gray-400 text-xs mt-1">
+                                        Venue max: {selectedVenueCapacity}
+                                    </p>
+                                )}
                             </div>
 
                             {/* ── Category ──────────────── */}
@@ -356,8 +438,8 @@ const ManageEvents = () => {
                             <div className="md:col-span-2 flex gap-3">
                                 <button
                                     type="submit"
-                                    disabled={formLoading}
-                                    className="bg-indigo-600 text-white px-6 py-2.5 rounded-lg font-medium hover:bg-indigo-700 transition-colors disabled:opacity-50">
+                                    disabled={formLoading || !!capacityError}
+                                    className="bg-indigo-600 text-white px-6 py-2.5 rounded-lg font-medium hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                                     {formLoading
                                         ? "Saving..."
                                         : editingEvent ? "Update Event" : "Create Event"}
@@ -367,6 +449,8 @@ const ManageEvents = () => {
                                     onClick={() => {
                                         setShowForm(false);
                                         setEditingEvent(null);
+                                        setSelectedVenueCapacity(null);
+                                        setCapacityError("");
                                     }}
                                     className="bg-gray-100 text-gray-700 px-6 py-2.5 rounded-lg font-medium hover:bg-gray-200 transition-colors">
                                     Cancel
